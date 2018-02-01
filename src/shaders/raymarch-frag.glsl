@@ -24,6 +24,13 @@ float time;
 //const vec4 cameraPos = vec4()
 //const vec4 lightPos = vec4()
 
+vec2 convertAspectRatio(vec2 st) {
+
+	return ((st + 1.0) / 2.0) * u_AspectRatio.xy;
+   // return 2.0 * (st - 0.5) * u_AspectRatio.xy / max(u_AspectRatio.x, u_AspectRatio.y);
+}
+
+
 //http://jamie-wong.com/2016/07/15/ray-marching-signed-distance-functions/
 float intersectSDF(float distA, float distB) {
     return max(distA, distB);
@@ -136,15 +143,16 @@ float cubeSDF(vec3 p, vec3 size) {
 }
 
 
-float sceneSDF(vec3 samplePoint)
+// TODO: Why is this wrong?
+float coneSDF ( vec3 p, vec2 c )
 {
-    // float sphereDist = sphereSDF(p / 1.2) * 1.2;
-    // float cubeDist = cubeSDF(p);
-    // // return intersectSDF(cubeDist, sphereDist);
-	// float sphereDist = sphereSDF(p / 1.2) * 1.2;
-    // float cubeDist = cubeSDF(p + vec3(0.0, sin(time), 0.0));
-   // return intersectSDF(cubeDist, sphereDist);
+    // c must be normalized
+    float q = length(p.xy);
+    return dot(c,vec2(q,p.z));
+}
 
+float testSceneSDF(vec3 samplePoint)
+{
 	// Slowly spin the whole scene
     samplePoint = rotateY(time / 2.0) * samplePoint;
     
@@ -172,7 +180,50 @@ float sceneSDF(vec3 samplePoint)
                          unionSDF(cylinder1, unionSDF(cylinder2, cylinder3)));
     
     return unionSDF(balls, csgNut);
+}
 
+
+
+float metaballs(vec3 samplePoint)
+{
+	// TODO: IMPLEMENT METABALLS
+
+	//https://www.shadertoy.com/view/ld2BzV
+
+	 float sphere1 = sphereSDF(samplePoint, 1.2);
+
+	 // move 3 spheres. If the spheres are within a certain distance from each other, union
+	 // otherwise, nothing
+    
+    float ballOffset = sin(1.7 * time);
+    float ballRadius = 0.3;
+    float balls = sphereSDF(samplePoint - vec3(ballOffset, 0.0, 0.0), ballRadius);
+    balls = unionSDF(balls, sphereSDF(samplePoint + vec3(ballOffset, 0.0, 0.0), ballRadius));
+    balls = unionSDF(balls, sphereSDF(samplePoint - vec3(0.0, ballOffset, 0.0), ballRadius));
+	balls = unionSDF(balls, sphereSDF(samplePoint - vec3(0.0, ballOffset, 0.0), ballRadius));
+	balls = unionSDF(balls, sphereSDF(samplePoint - vec3(0.0, ballOffset, 0.0), ballRadius));
+	balls = unionSDF(balls, sphereSDF(samplePoint - vec3(0.0, ballOffset, 0.0), ballRadius));
+    balls = unionSDF(balls, sphereSDF(samplePoint + vec3(0.0, ballOffset, 0.0), ballRadius));
+    balls = unionSDF(balls, sphereSDF(samplePoint - vec3(0.0, 0.0, ballOffset), ballRadius));
+    balls = unionSDF(balls, sphereSDF(samplePoint + vec3(0.0, 0.0, ballOffset), ballRadius));
+
+  // 3 balls
+  // move up and together, then away and a apart
+
+    // float ballOffset = sin(1.7 * time);
+    // float ballRadius = 0.3;
+    // float balls = sphereSDF(samplePoint - vec3(ballOffset, 0.0, 0.0), ballRadius);
+    // balls = unionSDF(balls, sphereSDF(samplePoint + vec3(ballOffset, 0.0, 0.0), ballRadius));
+	// balls = intersectSDF(balls, sphereSDF(samplePoint - vec3(0.0, 0.0, ballOffset), ballRadius));
+    // balls = unionSDF(balls, sphereSDF(samplePoint - vec3(0.0, ballOffset, 0.0), ballRadius));
+	// balls = unionSDF(balls, sphereSDF(samplePoint - vec3(0.0, ballOffset, 0.0), ballRadius));
+
+	return balls;
+}
+
+float sceneSDF(vec3 samplePoint)
+{
+	return metaballs(samplePoint);
 }
 
 
@@ -333,7 +384,7 @@ void main() {
 
 	time = u_Time / 100.0;
 
-	vec2 fragCoord = ((f_Pos.xy + 1.0) / 2.0) * u_AspectRatio.xy;
+	vec2 fragCoord = convertAspectRatio(f_Pos.xy);
 	vec3 viewDir = rayDirection(45.0, u_AspectRatio, fragCoord);
    //vec3 eye = vec3(0.0, 0.0, 5.0); // Doesn't work if I say eye = vec3(u_Eye);, figure out why
     vec3 eye = vec3(8.0, 5.0, 7.0);
