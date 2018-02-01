@@ -203,7 +203,7 @@ float skull(vec3 p)
 	float circle = sphereSDF(headPoint, .10);
 
 	headPoint -= vec3(0.0, -.06, 0.0); 
-	headPoint = scaleOp(headPoint, vec3(.5, .5, .6));
+	//headPoint = scaleOp(headPoint, vec3(.3, .1, .4));
 	float square = cubeSDF(headPoint, vec3(.1, .1, .1)) - .01; // subtract a small constant for rounded edges
 
 	return smin(circle, square, .01);
@@ -241,19 +241,32 @@ float eyes(vec3 p)
 	return eyeballs;//min(eyeAndLid, eyeballs);//unionSDF(eyeAndLid, eyeballs);
 }
 
+//modified from iq
+vec3 opMouthBend( vec3 p )
+{
+    float c = cos(1.0 * p.y + PI * 0.5);
+    float s = sin(1.0 * p.y + PI * 0.5);
+    mat2  m = mat2(c,-s,s,c);
+    vec3  q = vec3((m*p.xy),p.z);
+	
+    return q;
+}
+
 float mouth(vec3 p)
 {
 	vec3 translate = vec3(0, -.65, 0.0);
-	//samp = scaleOp(samp, vec3(1.5, 1.5, .5));
-//	samp = rotateX(90.0 * deg2rad) * samp;
-//	samp -= vec3(0, -0.13, 0.0);
-//	samp = scaleOp(samp, vec3(.01, .01, .01));
 
-	vec3 a = vec3(-.15, 0.5, 0.0);
-	vec3 b = vec3(.15, 0.5, 0.0);;
+
+	vec3 a = vec3(-.15, -0.16, 0.0);
+	vec3 b = vec3(.15, -0.16, 0.0);;
 	float r = .06;
+
+	p = rotateZ(-90.0 * deg2rad) * p;
+	vec3 bend = opMouthBend(p);
+
 	
-	float mouth = capsuleSDF(p - translate, a, b, r);//cylinderSDF(samp, .3, .031);//capsuleSDF(p, a, b, r);
+	float mouth = capsuleSDF(bend, a, b, r);
+	
 	return mouth;
 }
 
@@ -265,6 +278,11 @@ float head(vec3 p)
 	float mouth = mouth(p);
 	float skullAndEyes = unionSDF(skull, eyes);
 	return smin(skullAndEyes, mouth, .02);
+}
+
+float nose(vec3 p)
+{
+	
 }
 
 float squidward(vec3 samplePoint)
@@ -451,9 +469,9 @@ void main() {
 
 	vec2 fragCoord = convertAspectRatio(f_Pos.xy);
 	vec3 viewDir = rayDirection(45.0, u_AspectRatio, fragCoord);
-   //vec3 eye = vec3(0.0, 0.0, 5.0); // Doesn't work if I say eye = vec3(u_Eye);, figure out why
+   vec3 eye = vec3(0.0, 0.0, 5.0); // Doesn't work if I say eye = vec3(u_Eye);, figure out why
     //vec3 eye = vec3(0.0, 0.0, 1.0);
-	vec3 eye = vec3(0.0, 0.0, 5.0);
+	//vec3 eye = vec3(0.0, 5.0 * sin(0.01 * u_Time), 5.0);
     
     mat4 viewToWorld = viewMatrix(eye, vec3(0.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
     
