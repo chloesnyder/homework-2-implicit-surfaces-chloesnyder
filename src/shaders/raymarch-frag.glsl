@@ -350,45 +350,49 @@ vec3 estimateNormal(vec3 p) {
 // http://prideout.net/blog/?tag=toon-shader
 vec3 toonShader(vec3 p, vec3 viewDir)
 {
-    float shininess = 20.0;
+    float shininess = 50.0;
 
 	const float A = 0.1;
-	const float B = 0.3;
-	const float C = 0.6;
+	const float B = 0.2;
+	const float C = 0.7;
 	const float D = 1.0;
 
 	vec3 light1Pos = vec3(4.0 * sin(time),
                           2.0,
                           4.0 * cos(time));    
-	vec3 light1Intensity = vec3(0.4, 0.4, 0.4);
 	vec3 N = estimateNormal(p);
     vec3 L = normalize(light1Pos);
     vec3 E = vec3(0.0, 0.0, 10.0);
 	vec3 H = normalize(L+E);
 
-	float df = max(0.0, dot(N, L));
-	if(df < A)
-	{
-		df = 0.0;
-	} else if (df < B) {
-		df = B;
-	} else if (df < C) {
-		df = C;
-	} else {
-		df = D;
-	}
 	
     float sf = max(0.0, dot(N, H));
-    sf = pow(sf, shininess);
-	sf = step(0.5, sf);
+	sf = pow(sf, shininess);
+	float eps = fwidth(sf);
+	if(sf > .5 - eps && sf < .5 + eps)
+	{
+		sf = smoothstep(0.5 - eps, 0.5 + eps, sf);
+	} else {
+		sf = step(0.5, sf);
+	}
 
+	float df = max(0.0, dot(N, L));
+	eps = fwidth(df);
+	if      (df > A - eps && df < A + eps) df = mix(A, B, smoothstep(A - eps, A + eps, df));
+    else if (df > B - eps && df < B + eps) df = mix(B, C, smoothstep(B - eps, B + eps, df));
+    else if (df > C - eps && df < C + eps) df = mix(C, D, smoothstep(C - eps, C + eps, df));
+    else if (df < A) df = 0.0;
+    else if (df < B) df = B;
+    else if (df < C) df = C;
+    else df = D;
+	
 	vec3 ambientMaterial = (1.0 / 255.0) * vec3(128.0, 216.0, 229.0);
 	vec3 diffuse = vec3(0,1.0,0);
-	vec3 specularMaterial = vec3(.7, .7, .7);
+	vec3 specularMaterial = (1.0 / 255.0) * vec3(186.0, 236.0, 244.0);
 
 	if(dot(-viewDir, N) < mix(.6, .4, max(0.0, dot(N, L))))
 	{
-		return specularMaterial * vec3(.01,0.1,0.1);
+		return  vec3(.01,0.1,0.1);
 	} else {
 		return ambientMaterial + df * diffuse + sf * specularMaterial;
 	}
