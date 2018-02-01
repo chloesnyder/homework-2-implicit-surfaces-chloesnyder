@@ -276,8 +276,11 @@ float mouth(vec3 p)
 
 	
 	float mouth = capsuleSDF(bend, a, b, r);
+
+	float mouthLine = capsuleSDF(bend - vec3(0, 0, .06), a, b, .01);
+
 	
-	return mouth;
+	return differenceSDF(mouth, mouthLine);
 }
 
 float head(vec3 p)
@@ -314,7 +317,7 @@ float nose(vec3 p)
 float squidward(vec3 samplePoint)
 {
 	// Slowly spin the whole scene
-    samplePoint = rotateY(time / 2.0) * samplePoint;
+    //samplePoint = rotateY(time / 2.0) * samplePoint;
 
 	// HEAD
 	// sphere sdf scaled, translated, rotated
