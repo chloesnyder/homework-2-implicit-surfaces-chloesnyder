@@ -152,37 +152,6 @@ float cubeSDF(vec3 p, vec3 size) {
 }
 
 
-float testSceneSDF(vec3 samplePoint)
-{
-	// Slowly spin the whole scene
-    samplePoint = rotateY(time / 2.0) * samplePoint;
-    
-    float cylinderRadius = 0.4 + (1.0 - 0.4) * (1.0 + sin(1.7 * time)) / 2.0;
-    float cylinder1 = cylinderSDF(samplePoint, 2.0, cylinderRadius);
-    float cylinder2 = cylinderSDF(rotateX(radians(90.0)) * samplePoint, 2.0, cylinderRadius);
-    float cylinder3 = cylinderSDF(rotateY(radians(90.0)) * samplePoint, 2.0, cylinderRadius);
-    
-    float cube = cubeSDF(samplePoint, vec3(1.8, 1.8, 1.8));
-    
-    float sphere = sphereSDF(samplePoint, 1.2);
-    
-    float ballOffset = 0.4 + 1.0 + sin(1.7 * time);
-    float ballRadius = 0.3;
-    float balls = sphereSDF(samplePoint - vec3(ballOffset, 0.0, 0.0), ballRadius);
-    balls = unionSDF(balls, sphereSDF(samplePoint + vec3(ballOffset, 0.0, 0.0), ballRadius));
-    balls = unionSDF(balls, sphereSDF(samplePoint - vec3(0.0, ballOffset, 0.0), ballRadius));
-    balls = unionSDF(balls, sphereSDF(samplePoint + vec3(0.0, ballOffset, 0.0), ballRadius));
-    balls = unionSDF(balls, sphereSDF(samplePoint - vec3(0.0, 0.0, ballOffset), ballRadius));
-    balls = unionSDF(balls, sphereSDF(samplePoint + vec3(0.0, 0.0, ballOffset), ballRadius));
-    
-    
-    
-    float csgNut = differenceSDF(intersectSDF(cube, sphere),
-                         unionSDF(cylinder1, unionSDF(cylinder2, cylinder3)));
-    
-    return unionSDF(balls, csgNut);
-}
-
 vec3 scaleOp(vec3 samplePoint, vec3 scale)
 {
 	return (samplePoint / scale) * min(scale.x, min(scale.y, scale.z));
@@ -229,16 +198,9 @@ float eyes(vec3 p)
 	float p2 = cubeSDF(pupil2, vec3(.01, .02, .08));
 	float pupils = unionSDF(p1, p2);
 
-	// eyelid molded from a block
-	//vec3 eyelid = scaleOp()
-	// vec3 lid1 = scaleOp(eye1 - vec3(0.0, 0.01, .015), vec3(1.0, 1.0, 1.0));
-	// lid1 -= vec3(0.0, .01, 0.0);
-	// lid1 = rotateX(-15.0 * deg2rad) * lid1;
-	// float l1 = cubeSDF(lid1, vec3(.05, .035, .025));
-
-	// float eyeAndLid = intersectSDF(eyes, l1);
+	
 	float eyeballs = differenceSDF(eyes, pupils);
-	return eyeballs;//min(eyeAndLid, eyeballs);//unionSDF(eyeAndLid, eyeballs);
+	return eyeballs;
 }
 
 //modified from iq
@@ -258,7 +220,7 @@ vec3 opMouthBend( vec3 p )
 vec3 opNoseBend( vec3 p )
 {
 	
-    float c = cos(2.0 * p.z + PI * 0.5);
+    float c = cos(3.0 * p.z + PI * 0.5);
     float s = sin(-4.0 * p.z + PI * 0.5);
     mat2  m = mat2(c,-s,s,c);
     vec3  q = vec3((m*p.xz),p.y);
@@ -304,7 +266,6 @@ float nose(vec3 p)
 
 	p -= translate;
 	p = rotateZ(90.0 * deg2rad) * p;
-	//p = rotateX(-45.0 * deg2rad) * p;
 	
 	vec3 bend = opNoseBend(p);
 	bend = rotateX(0.0 * deg2rad) * bend;
@@ -318,22 +279,12 @@ float nose(vec3 p)
 
 float squidward(vec3 samplePoint)
 {
-	// Slowly spin the whole scene
-    //samplePoint = rotateY(time / 2.0) * samplePoint;
 
-	// HEAD
-	// sphere sdf scaled, translated, rotated
+	samplePoint = rotateY(time / 2.0) * samplePoint;
 	float head = head(samplePoint);
 	float nose = nose(samplePoint);
 	
 	return unionSDF(head, nose);
-
-	// EYES
-	// sphere sdf, scaled, translated, rotated + cube sdfs scaled, translated, union with sphere
-	// NOSE
-	// help on this... bend a cylinder and intersect with a sphere? 
-	
-
 }
 
 float sceneSDF(vec3 samplePoint)
@@ -396,81 +347,53 @@ vec3 estimateNormal(vec3 p) {
 }
 
 
-/**
-https://www.shadertoy.com/view/lt33z7
- * Lighting contribution of a single point light source via Phong illumination.
- * 
- * The vec3 returned is the RGB color of the light's contribution.
- *
- * k_a: Ambient color
- * k_d: Diffuse color
- * k_s: Specular color
- * alpha: Shininess coefficient
- * p: position of point being lit
- * eye: the position of the camera
- * lightPos: the position of the light
- * lightIntensity: color/intensity of the light
- *
- * See https://en.wikipedia.org/wiki/Phong_reflection_model#Description
- */
-vec3 phongContribForLight(vec3 k_d, vec3 k_s, float alpha, vec3 p, vec3 eye,
-                          vec3 lightPos, vec3 lightIntensity) {
-    vec3 N = estimateNormal(p);
-    vec3 L = normalize(lightPos - p);
-    vec3 V = normalize(eye - p);
-    vec3 R = normalize(reflect(-L, N));
-    
-    float dotLN = dot(L, N);
-    float dotRV = dot(R, V);
-    
-    if (dotLN < 0.0) {
-        // Light not visible from this point on the surface
-        return vec3(0.0, 0.0, 0.0);
-    } 
-    
-    if (dotRV < 0.0) {
-        // Light reflection in opposite direction as viewer, apply only diffuse
-        // component
-        return lightIntensity * (k_d * dotLN);
-    }
-    return lightIntensity * (k_d * dotLN + k_s * pow(dotRV, alpha));
-}
+// http://prideout.net/blog/?tag=toon-shader
+vec3 toonShader(vec3 p, vec3 viewDir)
+{
+    float shininess = 20.0;
 
-/**
-https://www.shadertoy.com/view/lt33z7
- * Lighting via Phong illumination.
- * 
- * The vec3 returned is the RGB color of that point after lighting is applied.
- * k_a: Ambient color
- * k_d: Diffuse color
- * k_s: Specular color
- * alpha: Shininess coefficient
- * p: position of point being lit
- * eye: the position of the camera
- *
- * See https://en.wikipedia.org/wiki/Phong_reflection_model#Description
- */
-vec3 phongIllumination(vec3 k_a, vec3 k_d, vec3 k_s, float alpha, vec3 p, vec3 eye) {
-    const vec3 ambientLight = 0.5 * vec3(1.0, 1.0, 1.0);
-    vec3 color = ambientLight * k_a;
-    
-    vec3 light1Pos = vec3(4.0 * sin(time),
+	const float A = 0.1;
+	const float B = 0.3;
+	const float C = 0.6;
+	const float D = 1.0;
+
+	vec3 light1Pos = vec3(4.0 * sin(time),
                           2.0,
-                          4.0 * cos(time));    vec3 light1Intensity = vec3(0.4, 0.4, 0.4);
-    
-    color += phongContribForLight(k_d, k_s, alpha, p, eye,
-                                  light1Pos,
-                                  light1Intensity);
-    
-    vec3 light2Pos = vec3(2.0 * sin(0.37 * time),
-                         2.0 * cos(0.37 * time),
-                         2.0);
-    vec3 light2Intensity = vec3(0.4, 0.4, 0.4);
-    
-    color += phongContribForLight(k_d, k_s, alpha, p, eye,
-                                  light2Pos,
-                                  light2Intensity);    
-    return color;
+                          4.0 * cos(time));    
+	vec3 light1Intensity = vec3(0.4, 0.4, 0.4);
+	vec3 N = estimateNormal(p);
+    vec3 L = normalize(light1Pos);
+    vec3 E = vec3(0.0, 0.0, 10.0);
+	vec3 H = normalize(L+E);
+
+	float df = max(0.0, dot(N, L));
+	if(df < A)
+	{
+		df = 0.0;
+	} else if (df < B) {
+		df = B;
+	} else if (df < C) {
+		df = C;
+	} else {
+		df = D;
+	}
+	
+    float sf = max(0.0, dot(N, H));
+    sf = pow(sf, shininess);
+	sf = step(0.5, sf);
+
+	vec3 ambientMaterial = (1.0 / 255.0) * vec3(128.0, 216.0, 229.0);
+	vec3 diffuse = vec3(0,1.0,0);
+	vec3 specularMaterial = vec3(.7, .7, .7);
+
+	if(dot(-viewDir, N) < mix(.6, .4, max(0.0, dot(N, L))))
+	{
+		return specularMaterial * vec3(.01,0.1,0.1);
+	} else {
+		return ambientMaterial + df * diffuse + sf * specularMaterial;
+	}
+
+	
 }
 
 /** https://www.shadertoy.com/view/Xtd3z7
@@ -498,11 +421,11 @@ void main() {
 	// TODO: make a Raymarcher!
 
 // control animation angle
-	time = 2.0;//u_Time / 100.0;
+	time = cos(u_Time / 100.0);
 
 	vec2 fragCoord = convertAspectRatio(f_Pos.xy);
 	vec3 viewDir = rayDirection(45.0, u_AspectRatio, fragCoord);
-   vec3 eye = vec3(0.0, 0.0, 5.0); // Doesn't work if I say eye = vec3(u_Eye);, figure out why
+    vec3 eye = vec3(0.0, 0.0, 3.0); 
     //vec3 eye = vec3(0.0, 0.0, 1.0);
 	//vec3 eye = vec3(0.0, 5.0 * sin(0.01 * u_Time), 5.0);
     
@@ -512,8 +435,6 @@ void main() {
     
     float dist = shortestDistanceToSurface(eye, worldDir, MIN_DIST, MAX_DIST);
     
-  //  float dist = shortestDistanceToSurface(eye, dir, MIN_DIST, MAX_DIST);
-    
     if (dist > MAX_DIST - EPSILON) {
         // Didn't hit anything
         out_Col = vec4(0.0, 0.0, 0.0, 1.0);
@@ -522,16 +443,7 @@ void main() {
     
     // The closest point on the surface to the eyepoint along the view ray
     vec3 p = eye + dist * worldDir;
-    
-    vec3 K_a = vec3(0.2, 0.2, 0.2);
-    vec3 K_d = vec3(0.7, 0.2, 0.2);
-    vec3 K_s = vec3(1.0, 1.0, 1.0);
-    float shininess = 10.0;
-    
-    vec3 color = phongIllumination(K_a, K_d, K_s, shininess, p, eye);
-    
+	vec3 color = toonShader(p, worldDir);   
+
     out_Col = vec4(color, 1.0);
-	
-	//out_Col = vec4(vec3(u_Time / 1000.0), 1.0);
-	//out_Col = vec4(vec3(length(aspectRatio * f_Pos)),1.0);//vec4(1.0, 0.5, 0.0, 1.0);
 }
