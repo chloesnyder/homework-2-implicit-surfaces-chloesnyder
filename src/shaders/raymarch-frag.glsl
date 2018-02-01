@@ -203,8 +203,8 @@ float skull(vec3 p)
 	float circle = sphereSDF(headPoint, .10);
 
 	headPoint -= vec3(0.0, -.06, 0.0); 
-	headPoint = scaleOp(headPoint, vec3(.5, .5, .5));
-	float square = cubeSDF(headPoint, vec3(.1, .1, .1));
+	headPoint = scaleOp(headPoint, vec3(.5, .5, .6));
+	float square = cubeSDF(headPoint, vec3(.1, .1, .1)) - .01; // subtract a small constant for rounded edges
 
 	return smin(circle, square, .01);
 }
@@ -221,8 +221,8 @@ float eyes(vec3 p)
 	float eyes = unionSDF(e1, e2);
 
 	// pupils
-	vec3 pupil1 = scaleOp(eye1, vec3(1.0, 1.0, 1.0));
-	vec3 pupil2 = scaleOp(eye2, vec3(1.0, 1.0, 1.0));
+	vec3 pupil1 = eye1;//scaleOp(eye1, vec3(1.0, 1.0, 1.0));
+	vec3 pupil2 = eye2;//scaleOp(eye2, vec3(1.0, 1.0, 1.0));
 	pupil1 -= vec3(0.0, -.01, 0.0);
 	pupil2 -= vec3(0.0, -.01, 0.0);
 	float p1 = cubeSDF(pupil1, vec3(.01, .02, 0.08));
@@ -243,26 +243,34 @@ float eyes(vec3 p)
 
 float mouth(vec3 p)
 {
-	vec3 a = p + vec3(0, .10, 0);
-	vec3 b = p - vec3(0, .10, 0);
-	float r = .15;
-	float mouth = capsuleSDF(p, a, b, r);
+	vec3 translate = vec3(0, -.65, 0.0);
+	//samp = scaleOp(samp, vec3(1.5, 1.5, .5));
+//	samp = rotateX(90.0 * deg2rad) * samp;
+//	samp -= vec3(0, -0.13, 0.0);
+//	samp = scaleOp(samp, vec3(.01, .01, .01));
+
+	vec3 a = vec3(-.15, 0.5, 0.0);
+	vec3 b = vec3(.15, 0.5, 0.0);;
+	float r = .06;
+	
+	float mouth = capsuleSDF(p - translate, a, b, r);//cylinderSDF(samp, .3, .031);//capsuleSDF(p, a, b, r);
 	return mouth;
 }
 
 float head(vec3 p)
 {
+	
 	float skull = skull(p);
 	float eyes = eyes(p);
 	float mouth = mouth(p);
 	float skullAndEyes = unionSDF(skull, eyes);
-	return skullAndEyes;//mouth;//unionSDF(skullAndEyes, mouth);
+	return smin(skullAndEyes, mouth, .02);
 }
 
 float squidward(vec3 samplePoint)
 {
 	// Slowly spin the whole scene
-   // samplePoint = rotateY(time / 2.0) * samplePoint;
+    //samplePoint = rotateY(time / 2.0) * samplePoint;
 
 	// HEAD
 	// sphere sdf scaled, translated, rotated
@@ -274,7 +282,6 @@ float squidward(vec3 samplePoint)
 	// NOSE
 	// help on this... bend a cylinder and intersect with a sphere? 
 	
-
 
 }
 
@@ -445,7 +452,8 @@ void main() {
 	vec2 fragCoord = convertAspectRatio(f_Pos.xy);
 	vec3 viewDir = rayDirection(45.0, u_AspectRatio, fragCoord);
    //vec3 eye = vec3(0.0, 0.0, 5.0); // Doesn't work if I say eye = vec3(u_Eye);, figure out why
-    vec3 eye = vec3(0.0, 0.0, 1.0);
+    //vec3 eye = vec3(0.0, 0.0, 1.0);
+	vec3 eye = vec3(0.0, 0.0, 5.0);
     
     mat4 viewToWorld = viewMatrix(eye, vec3(0.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
     
