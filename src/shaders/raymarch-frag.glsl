@@ -143,14 +143,6 @@ float cubeSDF(vec3 p, vec3 size) {
 }
 
 
-// TODO: Why is this wrong?
-float coneSDF ( vec3 p, vec2 c )
-{
-    // c must be normalized
-    float q = length(p.xy);
-    return dot(c,vec2(q,p.z));
-}
-
 float testSceneSDF(vec3 samplePoint)
 {
 	// Slowly spin the whole scene
@@ -182,48 +174,56 @@ float testSceneSDF(vec3 samplePoint)
     return unionSDF(balls, csgNut);
 }
 
-
-
-float metaballs(vec3 samplePoint)
+vec3 scaleOp(vec3 samplePoint, vec3 scale)
 {
-	// TODO: IMPLEMENT METABALLS
+	return (samplePoint / scale) * min(scale.x, min(scale.y, scale.z));
+}
 
-	//https://www.shadertoy.com/view/ld2BzV
+float skull(vec3 p)
+{
+	vec3 scale = vec3(2.0, 1.5, 1.0); // scale
+	vec3 headPoint = scaleOp(p, scale);
+	headPoint -= vec3(0.0, .03, 0.0); //translate
+	return sphereSDF(headPoint, .10);
+}
 
-	 float sphere1 = sphereSDF(samplePoint, 1.2);
+float eye(vec3 p)
+{
+	vec3 scale = vec3(1.7, 2.5, 1.0); // scale
+	vec3 eye= scaleOp(p, scale);
+	vec3 eye1 = eye - vec3(0.03, .0, 0.15); //translate
+	vec3 eye2 = eye - vec3(-0.03, .0, 0.15);
+	float e1 = sphereSDF(eye1, .03);
+	float e2 = sphereSDF(eye2, .03);
+	return unionSDF(e1, e2);
+}
 
-	 // move 3 spheres. If the spheres are within a certain distance from each other, union
-	 // otherwise, nothing
-    
-    float ballOffset = sin(1.7 * time);
-    float ballRadius = 0.3;
-    float balls = sphereSDF(samplePoint - vec3(ballOffset, 0.0, 0.0), ballRadius);
-    balls = unionSDF(balls, sphereSDF(samplePoint + vec3(ballOffset, 0.0, 0.0), ballRadius));
-    balls = unionSDF(balls, sphereSDF(samplePoint - vec3(0.0, ballOffset, 0.0), ballRadius));
-	balls = unionSDF(balls, sphereSDF(samplePoint - vec3(0.0, ballOffset, 0.0), ballRadius));
-	balls = unionSDF(balls, sphereSDF(samplePoint - vec3(0.0, ballOffset, 0.0), ballRadius));
-	balls = unionSDF(balls, sphereSDF(samplePoint - vec3(0.0, ballOffset, 0.0), ballRadius));
-    balls = unionSDF(balls, sphereSDF(samplePoint + vec3(0.0, ballOffset, 0.0), ballRadius));
-    balls = unionSDF(balls, sphereSDF(samplePoint - vec3(0.0, 0.0, ballOffset), ballRadius));
-    balls = unionSDF(balls, sphereSDF(samplePoint + vec3(0.0, 0.0, ballOffset), ballRadius));
+float head(vec3 p)
+{
+	float skull = skull(p);
+	float eye1 = eye(p);
+	return unionSDF(skull, eye1);
+}
 
-  // 3 balls
-  // move up and together, then away and a apart
+float squidward(vec3 samplePoint)
+{
 
-    // float ballOffset = sin(1.7 * time);
-    // float ballRadius = 0.3;
-    // float balls = sphereSDF(samplePoint - vec3(ballOffset, 0.0, 0.0), ballRadius);
-    // balls = unionSDF(balls, sphereSDF(samplePoint + vec3(ballOffset, 0.0, 0.0), ballRadius));
-	// balls = intersectSDF(balls, sphereSDF(samplePoint - vec3(0.0, 0.0, ballOffset), ballRadius));
-    // balls = unionSDF(balls, sphereSDF(samplePoint - vec3(0.0, ballOffset, 0.0), ballRadius));
-	// balls = unionSDF(balls, sphereSDF(samplePoint - vec3(0.0, ballOffset, 0.0), ballRadius));
+	// HEAD
+	// sphere sdf scaled, translated, rotated
+	return head(samplePoint);
 
-	return balls;
+	// EYES
+	// sphere sdf, scaled, translated, rotated + cube sdfs scaled, translated, union with sphere
+	// NOSE
+	// help on this... bend a cylinder and intersect with a sphere? 
+	
+
+
 }
 
 float sceneSDF(vec3 samplePoint)
 {
-	return metaballs(samplePoint);
+	return squidward(samplePoint);
 }
 
 
@@ -382,12 +382,12 @@ mat4 viewMatrix(vec3 eye, vec3 center, vec3 up) {
 void main() {
 	// TODO: make a Raymarcher!
 
-	time = u_Time / 100.0;
+	time = 1.0;//u_Time / 100.0;
 
 	vec2 fragCoord = convertAspectRatio(f_Pos.xy);
 	vec3 viewDir = rayDirection(45.0, u_AspectRatio, fragCoord);
    //vec3 eye = vec3(0.0, 0.0, 5.0); // Doesn't work if I say eye = vec3(u_Eye);, figure out why
-    vec3 eye = vec3(8.0, 5.0, 7.0);
+    vec3 eye = vec3(0.0, 0.0, 1.0);
     
     mat4 viewToWorld = viewMatrix(eye, vec3(0.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
     
