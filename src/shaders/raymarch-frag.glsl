@@ -244,8 +244,9 @@ float eyes(vec3 p)
 //modified from iq
 vec3 opMouthBend( vec3 p )
 {
-    float c = cos(1.0 * p.y + PI * 0.5);
-    float s = sin(1.0 * p.y + PI * 0.5);
+	// smile and frown
+    float c = cos(cos(u_Time/100.0) * 1.0 * p.y + PI * 0.5);
+    float s = sin(cos(u_Time/100.0) * 1.0 * p.y + PI * 0.5);
     mat2  m = mat2(c,-s,s,c);
     vec3  q = vec3((m*p.xy),p.z);
 	
@@ -256,6 +257,7 @@ vec3 opMouthBend( vec3 p )
 //modified from iq
 vec3 opNoseBend( vec3 p )
 {
+	
     float c = cos(2.0 * p.z + PI * 0.5);
     float s = sin(-4.0 * p.z + PI * 0.5);
     mat2  m = mat2(c,-s,s,c);
