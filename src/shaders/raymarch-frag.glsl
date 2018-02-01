@@ -1,6 +1,7 @@
 #version 300 es
 
-
+#define PI 3.14159265359
+#define deg2rad PI / 180.0
 precision highp float;
 
 uniform float u_Time;
@@ -97,6 +98,14 @@ float sphereSDF(vec3 p, float r) {
     return length(p) - r;
 }
 
+// iq
+float capsuleSDF( vec3 p, vec3 a, vec3 b, float r )
+{
+    vec3 pa = p - a;
+	vec3 ba = b - a;
+    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+    return length( pa - ba*h ) - r;
+}
 
 /**
  * Signed distance function for an XY aligned cylinder centered at the origin with
@@ -179,37 +188,85 @@ vec3 scaleOp(vec3 samplePoint, vec3 scale)
 	return (samplePoint / scale) * min(scale.x, min(scale.y, scale.z));
 }
 
-float skull(vec3 p)
+// iq
+float smin( float a, float b, float k )
 {
-	vec3 scale = vec3(2.0, 1.5, 1.0); // scale
-	vec3 headPoint = scaleOp(p, scale);
-	headPoint -= vec3(0.0, .03, 0.0); //translate
-	return sphereSDF(headPoint, .10);
+    float h = clamp( 0.5+0.5*(b-a)/k, 0.0, 1.0 );
+    return mix( b, a, h ) - k*h*(1.0-h);
 }
 
-float eye(vec3 p)
+float skull(vec3 p)
 {
+	vec3 scale = vec3(2.0, 1.5, 1.0); // scale sphere to ellipsoid
+	vec3 headPoint = scaleOp(p, scale);
+	headPoint -= vec3(0.0, .03, 0.0); //translate up
+	float circle = sphereSDF(headPoint, .10);
+
+	headPoint -= vec3(0.0, -.06, 0.0); 
+	headPoint = scaleOp(headPoint, vec3(.5, .5, .5));
+	float square = cubeSDF(headPoint, vec3(.1, .1, .1));
+
+	return smin(circle, square, .01);
+}
+
+float eyes(vec3 p)
+{
+	//eyeball
 	vec3 scale = vec3(1.7, 2.5, 1.0); // scale
-	vec3 eye= scaleOp(p, scale);
-	vec3 eye1 = eye - vec3(0.03, .0, 0.15); //translate
-	vec3 eye2 = eye - vec3(-0.03, .0, 0.15);
+	vec3 eye = scaleOp(p, scale);
+	vec3 eye1 = eye - vec3(0.03, .0, 0.09); //translate
+	vec3 eye2 = eye - vec3(-0.03, .0, 0.09);
 	float e1 = sphereSDF(eye1, .03);
 	float e2 = sphereSDF(eye2, .03);
-	return unionSDF(e1, e2);
+	float eyes = unionSDF(e1, e2);
+
+	// pupils
+	vec3 pupil1 = scaleOp(eye1, vec3(1.0, 1.0, 1.0));
+	vec3 pupil2 = scaleOp(eye2, vec3(1.0, 1.0, 1.0));
+	pupil1 -= vec3(0.0, -.01, 0.0);
+	pupil2 -= vec3(0.0, -.01, 0.0);
+	float p1 = cubeSDF(pupil1, vec3(.01, .02, 0.08));
+	float p2 = cubeSDF(pupil2, vec3(.01, .02, .08));
+	float pupils = unionSDF(p1, p2);
+
+	// eyelid molded from a block
+	//vec3 eyelid = scaleOp()
+	// vec3 lid1 = scaleOp(eye1 - vec3(0.0, 0.01, .015), vec3(1.0, 1.0, 1.0));
+	// lid1 -= vec3(0.0, .01, 0.0);
+	// lid1 = rotateX(-15.0 * deg2rad) * lid1;
+	// float l1 = cubeSDF(lid1, vec3(.05, .035, .025));
+
+	// float eyeAndLid = intersectSDF(eyes, l1);
+	float eyeballs = differenceSDF(eyes, pupils);
+	return eyeballs;//min(eyeAndLid, eyeballs);//unionSDF(eyeAndLid, eyeballs);
+}
+
+float mouth(vec3 p)
+{
+	vec3 a = p + vec3(0, .10, 0);
+	vec3 b = p - vec3(0, .10, 0);
+	float r = .15;
+	float mouth = capsuleSDF(p, a, b, r);
+	return mouth;
 }
 
 float head(vec3 p)
 {
 	float skull = skull(p);
-	float eye1 = eye(p);
-	return unionSDF(skull, eye1);
+	float eyes = eyes(p);
+	float mouth = mouth(p);
+	float skullAndEyes = unionSDF(skull, eyes);
+	return skullAndEyes;//mouth;//unionSDF(skullAndEyes, mouth);
 }
 
 float squidward(vec3 samplePoint)
 {
+	// Slowly spin the whole scene
+   // samplePoint = rotateY(time / 2.0) * samplePoint;
 
 	// HEAD
 	// sphere sdf scaled, translated, rotated
+	
 	return head(samplePoint);
 
 	// EYES
@@ -382,7 +439,8 @@ mat4 viewMatrix(vec3 eye, vec3 center, vec3 up) {
 void main() {
 	// TODO: make a Raymarcher!
 
-	time = 1.0;//u_Time / 100.0;
+// control animation angle
+	time = 2.0;//u_Time / 100.0;
 
 	vec2 fragCoord = convertAspectRatio(f_Pos.xy);
 	vec3 viewDir = rayDirection(45.0, u_AspectRatio, fragCoord);
