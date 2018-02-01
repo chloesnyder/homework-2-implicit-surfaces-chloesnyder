@@ -1,4 +1,4 @@
-import {vec3} from 'gl-matrix';
+import {vec3, vec2, vec4} from 'gl-matrix';
 import * as Stats from 'stats-js';
 import * as DAT from 'dat-gui';
 import Square from './geometry/Square';
@@ -13,6 +13,7 @@ const controls = {
 };
 
 let screenQuad: Square;
+let time = 0;
 
 function main() {
   // Initial display for framerate
@@ -58,6 +59,7 @@ function main() {
 
   // This function will be called every frame
   function tick() {
+
     camera.update();
     stats.begin();
 
@@ -65,7 +67,13 @@ function main() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     // TODO: get / calculate relevant uniforms to send to shader here
-    // TODO: send uniforms to shader
+    // TODO: send uniforms to shader 
+    // pass aspect ratio, time  and for now just hard code your camera view 
+    raymarchShader.setTime(time++);
+    raymarchShader.setAspectRatio(vec2.fromValues(window.innerWidth, window.innerHeight));
+    raymarchShader.setEye(vec4.fromValues(camera.position[0], camera.position[1], camera.position[2], 1));
+
+
 
     // March!
     raymarchShader.draw(screenQuad);
