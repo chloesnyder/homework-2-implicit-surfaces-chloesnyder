@@ -252,11 +252,21 @@ vec3 opMouthBend( vec3 p )
     return q;
 }
 
+
+//modified from iq
+vec3 opNoseBend( vec3 p )
+{
+    float c = cos(2.0 * p.z + PI * 0.5);
+    float s = sin(-4.0 * p.z + PI * 0.5);
+    mat2  m = mat2(c,-s,s,c);
+    vec3  q = vec3((m*p.xz),p.y);
+	
+    return q;
+}
+
 float mouth(vec3 p)
 {
 	vec3 translate = vec3(0, -.65, 0.0);
-
-
 	vec3 a = vec3(-.15, -0.16, 0.0);
 	vec3 b = vec3(.15, -0.16, 0.0);;
 	float r = .06;
@@ -282,18 +292,36 @@ float head(vec3 p)
 
 float nose(vec3 p)
 {
+	vec3 translate = vec3(0.0, -.15, 0.09);
+	vec3 a = vec3(.1, 0, 0.0);
+	vec3 b = vec3(-0.10, 0, 0.0);
+	float r = .05;
+
+	p -= translate;
+	p = rotateZ(90.0 * deg2rad) * p;
+	//p = rotateX(-45.0 * deg2rad) * p;
 	
+	vec3 bend = opNoseBend(p);
+	bend = rotateX(0.0 * deg2rad) * bend;
+	bend = rotateZ(70.0 * deg2rad) * bend;
+	
+
+	
+	float nose = capsuleSDF(bend, a, b, r);
+	return nose;
 }
 
 float squidward(vec3 samplePoint)
 {
 	// Slowly spin the whole scene
-    //samplePoint = rotateY(time / 2.0) * samplePoint;
+    samplePoint = rotateY(time / 2.0) * samplePoint;
 
 	// HEAD
 	// sphere sdf scaled, translated, rotated
+	float head = head(samplePoint);
+	float nose = nose(samplePoint);
 	
-	return head(samplePoint);
+	return unionSDF(head, nose);
 
 	// EYES
 	// sphere sdf, scaled, translated, rotated + cube sdfs scaled, translated, union with sphere
