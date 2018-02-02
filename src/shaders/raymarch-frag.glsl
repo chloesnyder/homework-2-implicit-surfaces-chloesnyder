@@ -2,6 +2,7 @@
 
 #define PI 3.14159265359
 #define deg2rad PI / 180.0
+#define saturate(x) clamp(x, 0.0, 1.0)
 precision highp float;
 
 uniform float u_Time;
@@ -21,6 +22,10 @@ const float EPSILON = 0.0001;
 
 float time;
 
+vec3 ambientMaterial = vec3(0.0);
+vec3 diffuse = vec3(0.0);
+vec3 specularMaterial = vec3(0.0);
+vec3 outlineColor = vec3(0.0);
 
 //const vec4 cameraPos = vec4()
 //const vec4 lightPos = vec4()
@@ -107,35 +112,7 @@ float capsuleSDF( vec3 p, vec3 a, vec3 b, float r )
     return length( pa - ba*h ) - r;
 }
 
-/**
- * Signed distance function for an XY aligned cylinder centered at the origin with
- * height h and radius r. https://www.shadertoy.com/view/4tcGDr 
- */
-float cylinderSDF(vec3 p, float h, float r) {
-    // How far inside or outside the cylinder the point is, radially
-    float inOutRadius = length(p.xy) - r;
-    
-    // How far inside or outside the cylinder is, axially aligned with the cylinder
-    float inOutHeight = abs(p.z) - h/2.0;
-    
-    // Assuming p is inside the cylinder, how far is it from the surface?
-    // Result will be negative or zero.
-    float insideDistance = min(max(inOutRadius, inOutHeight), 0.0);
-
-    // Assuming p is outside the cylinder, how far is it from the surface?
-    // Result will be positive or zero.
-    float outsideDistance = length(max(vec2(inOutRadius, inOutHeight), 0.0));
-    
-    return insideDistance + outsideDistance;
-}
-
-/**https://www.shadertoy.com/view/Xtd3z7
- * Signed distance function for a cube centered at the origin
- * with width = height = length = 2.0
- */
-/**
- * Signed distance function for a cube centered at the origin
- * with dimensions specified by size.
+/**https://www.shadertoy.com/view/Xtd3z7 jamie wong
  */
 float cubeSDF(vec3 p, vec3 size) {
     vec3 d = abs(p) - (size / 2.0);
@@ -152,6 +129,7 @@ float cubeSDF(vec3 p, vec3 size) {
 }
 
 
+// modified from jamie wong
 vec3 scaleOp(vec3 samplePoint, vec3 scale)
 {
 	return (samplePoint / scale) * min(scale.x, min(scale.y, scale.z));
@@ -200,6 +178,20 @@ float eyes(vec3 p)
 
 	
 	float eyeballs = differenceSDF(eyes, pupils);
+	if(pupils < 0.0)
+	{
+		vec3 pupilColor = 1.0 / 255.0 * vec3(107.0, 38.0, 14.0);
+		ambientMaterial = pupilColor;
+		diffuse = pupilColor;
+		specularMaterial = pupilColor;
+	}
+	if(eyeballs < 0.0) {
+		vec3 eyeWhiteColor = vec3(1.0, 1.0, 0.0);//1.0 / 255.0 * vec3(255.0, 251.0, 186.0);
+		ambientMaterial = eyeWhiteColor;
+		diffuse = eyeWhiteColor;
+		specularMaterial = eyeWhiteColor;
+		outlineColor = eyeWhiteColor;
+	}
 	return eyeballs;
 }
 
@@ -243,7 +235,14 @@ float mouth(vec3 p)
 
 	float mouthLine = capsuleSDF(bend - vec3(0, 0, .06), a, b, .01);
 
-	
+	if(mouthLine < 0.0)
+	{
+		ambientMaterial = vec3(.1, .1, .1);
+		diffuse = vec3(.1, .1, .1);
+		specularMaterial = vec3(.1, .1, .1);
+		outlineColor = vec3(.1, .1, .1);
+	}
+
 	return differenceSDF(mouth, mouthLine);
 }
 
@@ -287,9 +286,19 @@ float squidward(vec3 samplePoint)
 	return unionSDF(head, nose);
 }
 
+// iq
+vec3 opRep( vec3 p, vec3 c )
+{
+    return mod(p,c)-0.5*c;
+}
+
 float sceneSDF(vec3 samplePoint)
 {
-	return squidward(samplePoint);
+	float ogSquid = squidward(samplePoint);
+	vec3 c = vec3(5, 15, 5);
+	samplePoint = opRep(samplePoint, c);
+	float repSquid = squidward(samplePoint);
+	return unionSDF(ogSquid, repSquid);
 }
 
 
@@ -347,15 +356,15 @@ vec3 estimateNormal(vec3 p) {
 }
 
 
-// http://prideout.net/blog/?tag=toon-shader
+//Referenced from  http://prideout.net/blog/?tag=toon-shader and https://en.wikibooks.org/wiki/GLSL_Programming/Unity/Toon_Shading
 vec3 toonShader(vec3 p, vec3 viewDir)
 {
-    float shininess = 50.0;
+    float shininess = 100.0;
 
-	const float A = 0.1;
-	const float B = 0.2;
-	const float C = 0.7;
-	const float D = 1.0;
+	const float A = 0.05;
+	const float B = 0.15;
+	const float C = 1.0;
+	const float D = 1.5;
 
 	vec3 light1Pos = vec3(4.0 * sin(time),
                           2.0,
@@ -386,13 +395,19 @@ vec3 toonShader(vec3 p, vec3 viewDir)
     else if (df < C) df = C;
     else df = D;
 	
-	vec3 ambientMaterial = (1.0 / 255.0) * vec3(128.0, 216.0, 229.0);
-	vec3 diffuse = vec3(0,1.0,0);
-	vec3 specularMaterial = (1.0 / 255.0) * vec3(186.0, 236.0, 244.0);
-
-	if(dot(-viewDir, N) < mix(.6, .4, max(0.0, dot(N, L))))
+	if(ambientMaterial.x <= 0.0 && ambientMaterial.y <= 0.0 && ambientMaterial.z <= 0.0)
 	{
-		return  vec3(.01,0.1,0.1);
+		ambientMaterial += (1.0 / 255.0) * vec3(128.0, 216.0, 229.0);
+		diffuse += vec3(0,1.0,0);
+		specularMaterial = (1.0 / 255.0) * vec3(186.0, 236.0, 244.0);
+		outlineColor = vec3(.01,0.1,0.1);
+	} 
+	
+
+
+	if(dot(-viewDir, N) < mix(.8, .6, max(0.0, dot(N, L))) )
+	{
+		return  ambientMaterial + df * outlineColor;
 	} else {
 		return ambientMaterial + df * diffuse + sf * specularMaterial;
 	}
