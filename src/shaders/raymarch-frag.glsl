@@ -178,19 +178,20 @@ float eyes(vec3 p)
 
 	
 	float eyeballs = differenceSDF(eyes, pupils);
-	if(pupils < 0.0)
+
+	if(eyeballs < 0.0 + EPSILON) {
+		vec3 eyeWhiteColor = 1.0 / 255.0 * vec3(239.0, 229.0, 137.0);
+		ambientMaterial = eyeWhiteColor;
+		diffuse = vec3(1.0, 1.0, 0.0);
+		specularMaterial = vec3(1.0, 1.0, 1.0);
+		outlineColor = eyeWhiteColor - vec3(.5, .5, .5);
+	}
+		if(pupils < 0.0 + EPSILON)
 	{
 		vec3 pupilColor = 1.0 / 255.0 * vec3(107.0, 38.0, 14.0);
 		ambientMaterial = pupilColor;
 		diffuse = pupilColor;
 		specularMaterial = pupilColor;
-	}
-	if(eyeballs < 0.0) {
-		vec3 eyeWhiteColor = vec3(1.0, 1.0, 0.0);//1.0 / 255.0 * vec3(255.0, 251.0, 186.0);
-		ambientMaterial = eyeWhiteColor;
-		diffuse = eyeWhiteColor;
-		specularMaterial = eyeWhiteColor;
-		outlineColor = eyeWhiteColor;
 	}
 	return eyeballs;
 }
@@ -222,7 +223,7 @@ vec3 opNoseBend( vec3 p )
 
 float mouth(vec3 p)
 {
-	vec3 translate = vec3(0, -.65, 0.0);
+	
 	vec3 a = vec3(-.15, -0.16, 0.0);
 	vec3 b = vec3(.15, -0.16, 0.0);;
 	float r = .06;
@@ -359,7 +360,7 @@ vec3 estimateNormal(vec3 p) {
 //Referenced from  http://prideout.net/blog/?tag=toon-shader and https://en.wikibooks.org/wiki/GLSL_Programming/Unity/Toon_Shading
 vec3 toonShader(vec3 p, vec3 viewDir)
 {
-    float shininess = 100.0;
+    float shininess = 50.0;
 
 	const float A = 0.05;
 	const float B = 0.15;
@@ -397,13 +398,11 @@ vec3 toonShader(vec3 p, vec3 viewDir)
 	
 	if(ambientMaterial.x <= 0.0 && ambientMaterial.y <= 0.0 && ambientMaterial.z <= 0.0)
 	{
-		ambientMaterial += (1.0 / 255.0) * vec3(128.0, 216.0, 229.0);
-		diffuse += vec3(0,1.0,0);
-		specularMaterial = (1.0 / 255.0) * vec3(186.0, 236.0, 244.0);
+		ambientMaterial = (1.0 / 255.0) * vec3(128.0, 216.0, 229.0);
+		diffuse = vec3(0,1.0,0);
+		specularMaterial = vec3(.02, .001, .001) + (1.0 / 255.0) * vec3(128.0, 216.0, 229.0);
 		outlineColor = vec3(.01,0.1,0.1);
 	} 
-	
-
 
 	if(dot(-viewDir, N) < mix(.8, .6, max(0.0, dot(N, L))) )
 	{
@@ -435,6 +434,7 @@ mat4 viewMatrix(vec3 eye, vec3 center, vec3 up) {
     );
 }
 
+
 //https://www.shadertoy.com/view/llt3R4
 void main() {
 	// TODO: make a Raymarcher!
@@ -445,8 +445,6 @@ void main() {
 	vec2 fragCoord = convertAspectRatio(f_Pos.xy);
 	vec3 viewDir = rayDirection(45.0, u_AspectRatio, fragCoord);
     vec3 eye = vec3(0.0, 0.0, 3.0); 
-    //vec3 eye = vec3(0.0, 0.0, 1.0);
-	//vec3 eye = vec3(0.0, 5.0 * sin(0.01 * u_Time), 5.0);
     
     mat4 viewToWorld = viewMatrix(eye, vec3(0.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
     
@@ -454,9 +452,30 @@ void main() {
     
     float dist = shortestDistanceToSurface(eye, worldDir, MIN_DIST, MAX_DIST);
     
+	// bubble background adapted from https://www.shadertoy.com/view/4slGDr
     if (dist > MAX_DIST - EPSILON) {
-        // Didn't hit anything
-        out_Col = vec4(0.0, 0.0, 0.0, 1.0);
+			// bubbles	
+			vec3 color = 1.0 / 255.0 * vec3(45.0, 90.0, 163.0);
+		for( int i=0; i<24; i++ )
+		{
+			// bubble seeds
+			float pha =     sin(float(i) * 232.11) * .5 + .5;
+			float siz =  pow(cos(float(i) * 39.2313 + 3.0)*.5 + .5, .5);
+			float pox =     cos(float(i) * 231.2142 + .76332) * u_AspectRatio.x / u_AspectRatio.y; 
+			// buble size, position and color
+			float rad = 0.1 + 0.5 * siz + sin(time + pha * 500.0 + siz) / 20.0;
+			vec2  pos = vec2( pox+sin(time + pha + siz), -1.0-rad + (2.0 + 2.0 * rad)
+							* mod(pha + 0.1 * (time) * (0.13 +0.56 * siz),1.0));
+			pos.y -= cos(time);
+			float dis = length(f_Pos.xy - pos );
+			vec3  col = sin(cos(time)) * vec3(.1, .1, .1);
+			// render
+			float f = length(f_Pos.xy-pos) / rad;
+			f = sqrt(clamp(1.0 + (sin((time) + pha * 289.0 + siz) * 0.5)- f * f,0.0,1.0));
+			color += col.zyx *(1.0 - smoothstep(rad * 0.82, rad, dis)) * f;
+		}
+		
+        out_Col = vec4(color, 1.0);
 		return;
     }
     
